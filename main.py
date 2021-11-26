@@ -1,6 +1,6 @@
 from typing import Dict,List,Tuple
 
-from matplotlib import pyplot as mp1
+from matplotlib import pyplot as mpl
 import random
 
 class KnapSackEvolver:
@@ -14,8 +14,8 @@ class KnapSackEvolver:
             crossOver : int):                               # mutation crosshover
 
         self._iterations : int = iterations                 # system max iterations
-        self._populationSize : int = size
-        self._geneLength - len(items.keys())                # gene or chromozone length (could be variables
+        self._populationSize : int = popSize
+        self._geneLength = len(items.keys())                # gene or chromozone length (could be variables
         self._items = items
         
         print(self._items)
@@ -36,7 +36,7 @@ class KnapSackEvolver:
     # there are as many as there are gene lengths
     def spawnSolution(self) -> List[int]:
         (lower, upper) = self._itemRange
-        return [random.randint(lower,upper) for _ int range(self._geneLength)]
+        return [random.randint(lower,upper) for _ in range(self._geneLength)]
 
 
     # get a list of candidates within our population
@@ -58,7 +58,7 @@ class KnapSackEvolver:
         cost = sum(weights)
         benefit = sum(utilities)
 
-        if cost > self.capaicity:
+        if cost > self._capicity:
             benefit = 0
             
         return benefit - cost
@@ -76,9 +76,10 @@ class KnapSackEvolver:
         return child
 
     def mutate(self, gene : List[int]) -> None:
-        point = random.randint(0, len(gene))
+        point = random.randint(0, len(gene)-1)
         (lower, upper) = self._itemRange
-        gene[point] = random.randint(lower, upper)
+        x = random.randint(lower, upper)
+        gene[point] = x
 
     def averageFitness(self, scored : List[Tuple]) -> float:
         total = 0
@@ -97,13 +98,70 @@ class KnapSackEvolver:
 
         mpl.xlabel('iterations')    
         mpl.ylabel('average fitness')
+        mpl.plot(xs, ys)
+        mpl.show()
 
-
+    # toString
+    # __str__ also works
     def __repr__(self) -> str:
         gene = "\n"
         for g in self._population:
-            x = self._fitness(g)
-            gene += f"{g} : {x}"
+            x = self.fitness(g)
+            gene += f"{g} : {x}\n"
         return gene
 
+    # children can replace parents in the next generation
+    # you can be biased or lenient when you decide who survives to the next generation
+    # (we are choosing the elitist route)
+    def evolve(self) -> None:
+        plotter = []
 
+        for i in range(self._iterations):
+            scored = [(self.fitness(self._population[p]), p) for p in range(self._populationSize)]     # calculate fitness of everyone
+            scored.sort(key=lambda x: x[0], reverse=True)                                       # reverse so best are at the head
+            plotter.append((i, self.averageFitness(scored)))
+
+            cutoff = int(len(scored) * 0.8)  # 80 percent preservation
+            for h in range(1,cutoff):
+                roll = random.randint(0,99)
+                if roll < self._crossover:
+                    # breed with someone better
+                    mate = scored[random.randint(0, h)][1]
+                    fitParent = scored[h][0]
+                    mate = scored[h][1]
+                    child = self.crossover(self._population[mate], self._population[mate])
+                    fitChild = self.fitness(child)
+
+                    if fitChild > fitParent:
+                        self.population[mate] = child
+
+
+            for v in range(cutoff, len(scored)):
+                iVictim = scored[v][1]
+                self._population[iVictim] = self.spawnSolution()
+
+            for m in range(1, len(scored)):
+                roll = random.randint(0,99)
+                if roll < self._mutationRate:
+                    iMutation = scored[m][1]
+                    self.mutate(self._population[iMutation])
+
+
+        self.visualize(plotter)
+
+
+
+
+
+items = {"food": (5,10), "water": (2, 20), "tent": (20,3), "medicine": (5,7), "clothes": (15,10)}
+itemRange = (0,5)
+capacity  = 50
+popSize = 20
+iter=100
+mutaterate = 5
+crossover = 20 
+
+evo = KnapSackEvolver(items, itemRange, capacity, popSize, iter, mutaterate, crossover)
+print(evo)
+evo.evolve()
+print(evo)
